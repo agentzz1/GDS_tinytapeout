@@ -11,10 +11,12 @@ You can also include images in this folder and reference them in the markdown. E
 
 Hello i am making a chip lol
 ## How to test
-
 Explain how to use your project
 yessir
 
+test hello
+
 ## External hardware
+hello
 
 List external hardware used in your project (e.g. PMOD, LED display, etc), if any
