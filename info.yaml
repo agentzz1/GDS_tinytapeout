@@ -3,13 +3,14 @@ project:
   title:        "RTX 8090 - 4-Bit ALU with FSM"      # Project title
   author:       "Ziyang Zhao"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  "4-bit ALU with Moore FSM controller demonstrating resource sharing on IHP SG13G2"      # One line description of what your project does
+  description:  "Transformer SFU (GELU/Sigmoid/Exp/Tanh/ReLU) + 4-bit ALU on IHP SG13G2"      # One line description of what your project does
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
-  top_module:   "tt_um_example"
+  top_module:   "tt_um_agentzz1_rtx8090"
   source_files:
     - "project.v"
     - "datapath.v"
     - "control.v"
+    - "sfu.v"
   clock_hz:     50000000       # Clock frequency in Hz (or 0 if not applicable)
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
@@ -40,11 +41,11 @@ pinout:
   uo[7]: "result[7]"
 
   # Bidirectional pins
-  uio[0]: "zero_flag"
-  uio[1]: "carry_flag"
-  uio[2]: "overflow_flag"
-  uio[3]: "result_valid"
-  uio[4]: "busy"
+  uio[0]: "func_sel[0] / zero_flag"
+  uio[1]: "func_sel[1] / carry_flag"
+  uio[2]: "func_sel[2] / overflow_flag"
+  uio[3]: "operand_b[3] / result_valid"
+  uio[4]: "mode (0=ALU, 1=SFU)"
   uio[5]: ""
   uio[6]: ""
   uio[7]: ""

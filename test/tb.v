@@ -17,7 +17,7 @@ module tb ();
         #1;
     end
 
-    tt_um_example dut (
+    tt_um_agentzz1_rtx8090 dut (
         `ifdef GL_TEST
             .VPWR(1'b1),
             .VGND(1'b0),
