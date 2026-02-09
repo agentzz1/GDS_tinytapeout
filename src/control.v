@@ -54,4 +54,6 @@ module control (
     assign result_valid  = (state == DONE);
     assign busy          = (state != IDLE);
 
+    wire _unused = &{zero_flag, carry_flag};
+
 endmodule

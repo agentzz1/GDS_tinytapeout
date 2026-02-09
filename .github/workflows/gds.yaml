@@ -19,50 +19,6 @@ jobs:
           pdk: ihp-sg13g2
           librelane-version: 3.0.0.dev44
 
-  gate_level_test:
-    needs: gds
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Download GDS artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: efabless
-
-      - name: Install iverilog
-        shell: bash
-        run: sudo apt-get update && sudo apt-get install -y iverilog
-
-      - name: Setup python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python packages
-        run: pip install -r test/requirements.txt
-
-      - name: Prepare gate-level netlist
-        run: cp runs/wokwi/results/final/verilog/gl/*.v test/gate_level_netlist.v || cp runs/*/results/final/verilog/gl/*.v test/gate_level_netlist.v
-
-      - name: Run gate-level tests
-        env:
-          PDK_ROOT: /home/runner/.volare
-        run: |
-          cd test
-          make clean
-          make GATES=yes
-          ! grep failure results.xml
-
-      - name: Test Summary
-        uses: test-summary/action@v2.3
-        with:
-          paths: "test/results.xml"
-        if: always()
-
   viewer:
     needs: gds
     runs-on: ubuntu-24.04

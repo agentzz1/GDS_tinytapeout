@@ -32,7 +32,7 @@ module datapath (
     wire       sub_mode = (alu_op == 3'b001) || (alu_op == 3'b111);
     wire [3:0] adder_b_input = sub_mode ? ~reg_b : reg_b;
     wire       carry_in = sub_mode;
-    wire [4:0] adder_out = reg_a + adder_b_input + carry_in;
+    wire [4:0] adder_out = reg_a + adder_b_input + {4'b0, carry_in};
 
     always @(*) begin
         case (alu_op)

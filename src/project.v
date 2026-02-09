@@ -76,6 +76,6 @@ module tt_um_agentzz1_rtx8090 (
 
     assign uio_oe = 8'b00011111;
 
-    wire _unused = ena;
+    wire _unused = &{ena, uio_in[7:5]};
 
 endmodule

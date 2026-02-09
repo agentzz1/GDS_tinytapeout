@@ -25,6 +25,7 @@ module sfu (
     // --- GELU: x * sigmoid(1.7 * x) ---
     wire signed [15:0] sx_wide = x * 8'sd27;
     wire signed [7:0]  sx = sx_wide[11:4];
+    wire _unused_sx = &{sx_wide[15:12], sx_wide[3:0]};
     wire [7:0] abs_sx = sx[7] ? -sx : sx;
     reg [7:0] sig_gelu_pos;
     always @(*) begin
@@ -38,6 +39,7 @@ module sfu (
     wire signed [7:0] sig_gelu = sx[7] ? (8'd16 - sig_gelu_pos) : sig_gelu_pos;
     wire signed [15:0] gelu_wide = x * sig_gelu;
     wire signed [7:0]  gelu_out = gelu_wide[11:4];
+    wire _unused_gelu = &{gelu_wide[15:12], gelu_wide[3:0]};
 
     // --- Tanh: 2*sigmoid(2x) - 1 ---
     wire signed [7:0] x2 = (x > 8'sd63) ? 8'sd127 :
