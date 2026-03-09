@@ -1,38 +1,32 @@
-![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/wokwi_test/badge.svg) ![](../../workflows/fpga/badge.svg)
+# GDS TinyTapeout
 
-# Tiny Tapeout Wokwi Project Template
+This repository captures a Tiny Tapeout digital-design experiment built on the Wokwi-based submission template. The goal is to explore a compact chip-oriented workflow that links project metadata, pin planning, simulation, and fabrication-style repository structure.
 
-- [Read the documentation for project](docs/info.md)
+## Why This Repository Exists
 
-## What is Tiny Tapeout?
+- to learn the Tiny Tapeout submission flow end to end
+- to work within a constrained digital-design footprint
+- to bridge software-oriented iteration habits with ASIC-style project packaging
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
+## Repository Layout
 
-To learn more and get started, visit https://tinytapeout.com.
+- `info.yaml` - project metadata, pinout, and tapeout configuration
+- `src/` - design sources
+- `test/` - verification and test assets
+- `docs/` - project notes and datasheet content
 
-## Wokwi Projects
+## Current Status
 
-Edit the [info.yaml](info.yaml) and change the `wokwi_id` to the ID of your Wokwi project. You can find the ID in the URL of your project, it's the big number after `wokwi.com/projects/`.
+- Tiny Tapeout template scaffolded and connected to the project metadata flow
+- design documentation and pin descriptions are being refined
+- repository structure kept intact for simulation and build automation
 
-The GitHub action will automatically fetch the digital netlist from Wokwi and build the ASIC files.
+## Relevance
 
-## Enable GitHub actions to build the results page
-
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
+This project complements my FPGA and hardware-software background by forcing a smaller, more fabrication-oriented mindset: constrained interfaces, explicit pin planning, and a cleaner separation between metadata, design sources, and verification assets.
 
 ## Resources
 
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
-
-## What next?
-
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
+- Tiny Tapeout: https://tinytapeout.com
+- Local hardening guide: https://www.tinytapeout.com/guides/local-hardening/
+- Documentation entrypoint: [docs/info.md](docs/info.md)
