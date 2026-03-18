@@ -190,7 +190,7 @@ async def execute(dut):
     await ClockCycles(dut.clk, 1)
 
 
-async def wait_done(dut, timeout_cycles=10):
+async def wait_done(dut, timeout_cycles=2000):
     for _ in range(timeout_cycles):
         status = await read_status(dut)
         if (status >> 7) & 0x1:
@@ -243,10 +243,10 @@ async def test_transformer_reference_match(dut):
     observed_qproj = [await read_bank(dut, 2, i) for i in range(8)]
     observed_weights = [raw8(await read_bank(dut, 3, i)) for i in range(8)]
 
-    assert observed_final == expected_final, f"final mismatch: {observed_final} != {expected_final}"
-    assert observed_mix == expected_mix, f"mix mismatch: {observed_mix} != {expected_mix}"
     assert observed_qproj == expected_qproj, f"q_proj mismatch: {observed_qproj} != {expected_qproj}"
     assert observed_weights == expected_weights, f"attn weights mismatch: {observed_weights} != {expected_weights}"
+    assert observed_mix == expected_mix, f"mix mismatch: {observed_mix} != {expected_mix}"
+    assert observed_final == expected_final, f"final mismatch: {observed_final} != {expected_final}"
 
 
 @cocotb.test()

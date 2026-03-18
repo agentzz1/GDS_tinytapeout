@@ -1,10 +1,12 @@
 # TinyTransformer on Tiny Tapeout
 
-This repository now implements a quantized transformer-style inference block sized for the maximum Tiny Tapeout user macro footprint (`8x2` tiles). The design accepts an 8-element query vector plus four 8-element context vectors over a serial command interface, then runs:
+This repository now implements a quantized transformer-style inference block sized for the maximum Tiny Tapeout user macro footprint (`8x2` tiles). The design accepts an 8-element query vector plus four 8-element context vectors over a serial command interface, then runs a MAC-reused inference pipeline with:
 
 - fixed-weight multi-head attention
 - output projection with residual connection
 - feed-forward network with GELU approximation
+
+The internal math is intentionally serialized so the design fits the ASIC floorplan instead of exploding into a fully unrolled matrix engine.
 
 ## Interface Summary
 

@@ -16,7 +16,7 @@ After an execute command, the controller advances through four registered stages
 3. `MIX`: output projection with residual add
 4. `FFN`: feed-forward network with GELU approximation and final residual add
 
-The datapath is intentionally wide and heavily unrolled so the design scales up into the full `8x2` Tiny Tapeout allocation rather than staying in a minimal demo footprint.
+Each stage reuses a small multiply-accumulate datapath over many cycles. That keeps the design transformer-like while staying small enough to harden inside the `8x2` Tiny Tapeout area.
 
 ### Protocol
 
@@ -49,6 +49,8 @@ With `cmd=10` and `strobe=0`, `uo_out` becomes a status byte:
 - bit `6`: `busy`
 - bit `5`: high when read mode is selected
 - bits `4:2`: current controller state
+
+Because the engine is serialized, one inference takes a few hundred clock cycles instead of a handful of cycles from a fully unrolled datapath.
 
 ### Verification
 

@@ -25,13 +25,13 @@ module tt_um_agentzz1_rtx8090 (
 
     wire       write_query;
     wire       write_context;
-    wire       stage_proj;
-    wire       stage_attn;
-    wire       stage_mix;
-    wire       stage_ffn;
+    wire       exec_start;
     wire       busy;
     wire       done;
     wire [2:0] state;
+    wire [2:0] datapath_state;
+    wire       datapath_busy;
+    wire       datapath_done;
     wire [7:0] read_data;
     wire [7:0] status_word;
 
@@ -41,12 +41,12 @@ module tt_um_agentzz1_rtx8090 (
         .cmd_strobe    (cmd_strobe),
         .cmd           (cmd),
         .feature_idx   (feature_idx),
+        .datapath_busy (datapath_busy),
+        .datapath_done (datapath_done),
+        .datapath_state(datapath_state),
         .write_query   (write_query),
         .write_context (write_context),
-        .stage_proj    (stage_proj),
-        .stage_attn    (stage_attn),
-        .stage_mix     (stage_mix),
-        .stage_ffn     (stage_ffn),
+        .exec_start    (exec_start),
         .busy          (busy),
         .done          (done),
         .state         (state)
@@ -57,13 +57,13 @@ module tt_um_agentzz1_rtx8090 (
         .rst_n         (rst_n),
         .write_query   (write_query),
         .write_context (write_context),
-        .stage_proj    (stage_proj),
-        .stage_attn    (stage_attn),
-        .stage_mix     (stage_mix),
-        .stage_ffn     (stage_ffn),
+        .exec_start    (exec_start),
         .slot_sel      (slot_sel),
         .feature_idx   (feature_idx),
         .data_in       (ui_in),
+        .busy          (datapath_busy),
+        .done          (datapath_done),
+        .state         (datapath_state),
         .read_data     (read_data)
     );
 
