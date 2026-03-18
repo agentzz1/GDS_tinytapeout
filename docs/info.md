@@ -63,3 +63,12 @@ The cocotb testbench mirrors the exact fixed-point math in Python, including:
 - residual and FFN stages
 
 That lets the simulation check the hardware against a software reference for both final output and internal debug banks.
+
+### Demo Board Testing
+
+For real hardware bring-up on a Tiny Tapeout demo board, use the short lab guide in [uni_lab_demo.md](uni_lab_demo.md). It covers:
+
+- Commander-based project selection and clock/reset bring-up
+- a single fixed gold test vector
+- an input-change test that should alter the final output
+- a fallback smoke test if full silicon validation is not yet possible

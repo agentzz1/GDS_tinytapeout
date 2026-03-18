@@ -45,7 +45,27 @@ When `cmd=10` and `strobe=0`, `uo_out` exposes:
 - `src/project.v`: Tiny Tapeout wrapper and bus protocol
 - `src/control.v`: 4-stage execution controller
 - `src/datapath.v`: fixed-weight transformer datapath
-- `test/test.py`: cocotb reference-model verification
+- `test/transformer_test.py`: cocotb reference-model verification
+
+## Demo Board Bring-up
+
+This project now includes a noob-friendly demo path for a real Tiny Tapeout devkit:
+
+- Browser bring-up in Tiny Tapeout Commander
+- One fixed gold test vector with expected output
+- One context update test that must change the output
+- A fallback smoke test if the full vector demo does not work on first silicon
+
+Use:
+
+- [`docs/uni_lab_demo.md`](docs/uni_lab_demo.md) for the exact lab flow
+- [`demo/tt_um_agentzz1_rtx8090_demo.py`](demo/tt_um_agentzz1_rtx8090_demo.py) for the Tiny Tapeout demoboard REPL script
+
+The expected final output for the shipped gold vector is:
+
+```text
+[21, -9, 25, 4, -7, 8, 27, -11]
+```
 
 ## References
 
