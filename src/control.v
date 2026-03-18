@@ -5,55 +5,76 @@
 module control (
     input  wire       clk,
     input  wire       rst_n,
-    input  wire       start,
-    input  wire [2:0] op_select,
-    input  wire       zero_flag,
-    input  wire       carry_flag,
-    output wire       load_a,
-    output wire       load_b,
-    output wire [2:0] alu_op,
-    output wire       result_valid,
-    output wire       busy
+    input  wire       cmd_strobe,
+    input  wire [1:0] cmd,
+    input  wire [2:0] feature_idx,
+    output wire       write_query,
+    output wire       write_context,
+    output wire       stage_proj,
+    output wire       stage_attn,
+    output wire       stage_mix,
+    output wire       stage_ffn,
+    output wire       busy,
+    output wire       done,
+    output wire [2:0] state
 );
 
-    localparam IDLE    = 3'b000;
-    localparam LOAD    = 3'b001;
-    localparam EXECUTE = 3'b010;
-    localparam DONE    = 3'b011;
+    localparam CMD_LOAD_QUERY   = 2'b00;
+    localparam CMD_LOAD_CONTEXT = 2'b01;
+    localparam CMD_CONTROL      = 2'b10;
 
-    reg [2:0] state, next_state;
-    reg [2:0] op_reg;
+    localparam STATE_IDLE = 3'b000;
+    localparam STATE_PROJ = 3'b001;
+    localparam STATE_ATTN = 3'b010;
+    localparam STATE_MIX  = 3'b011;
+    localparam STATE_FFN  = 3'b100;
 
-    // State register
+    reg [2:0] state_reg;
+    reg       done_reg;
+
+    wire execute_req = cmd_strobe && (cmd == CMD_CONTROL) && (feature_idx == 3'b111) && (state_reg == STATE_IDLE);
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state  <= IDLE;
-            op_reg <= 3'b000;
+            state_reg <= STATE_IDLE;
+            done_reg  <= 1'b0;
         end else begin
-            state <= next_state;
-            if (state == IDLE && start)
-                op_reg <= op_select;
+            case (state_reg)
+                STATE_IDLE: begin
+                    if (execute_req) begin
+                        state_reg <= STATE_PROJ;
+                        done_reg  <= 1'b0;
+                    end
+                end
+                STATE_PROJ: begin
+                    state_reg <= STATE_ATTN;
+                end
+                STATE_ATTN: begin
+                    state_reg <= STATE_MIX;
+                end
+                STATE_MIX: begin
+                    state_reg <= STATE_FFN;
+                end
+                STATE_FFN: begin
+                    state_reg <= STATE_IDLE;
+                    done_reg  <= 1'b1;
+                end
+                default: begin
+                    state_reg <= STATE_IDLE;
+                    done_reg  <= 1'b0;
+                end
+            endcase
         end
     end
 
-    // Next-state logic
-    always @(*) begin
-        case (state)
-            IDLE:    next_state = start ? LOAD : IDLE;
-            LOAD:    next_state = EXECUTE;
-            EXECUTE: next_state = DONE;
-            DONE:    next_state = IDLE;
-            default: next_state = IDLE;
-        endcase
-    end
-
-    // Moore outputs
-    assign load_a        = (state == LOAD);
-    assign load_b        = (state == LOAD);
-    assign alu_op        = (state == EXECUTE || state == DONE) ? op_reg : 3'b000;
-    assign result_valid  = (state == DONE);
-    assign busy          = (state != IDLE);
-
-    wire _unused = &{zero_flag, carry_flag};
+    assign write_query   = cmd_strobe && (cmd == CMD_LOAD_QUERY) && (state_reg == STATE_IDLE);
+    assign write_context = cmd_strobe && (cmd == CMD_LOAD_CONTEXT) && (state_reg == STATE_IDLE);
+    assign stage_proj    = (state_reg == STATE_PROJ);
+    assign stage_attn    = (state_reg == STATE_ATTN);
+    assign stage_mix     = (state_reg == STATE_MIX);
+    assign stage_ffn     = (state_reg == STATE_FFN);
+    assign busy          = (state_reg != STATE_IDLE);
+    assign done          = done_reg;
+    assign state         = state_reg;
 
 endmodule

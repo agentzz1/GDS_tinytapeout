@@ -1,9 +1,9 @@
 # Tiny Tapeout project information (Verilog project)
 project:
-  title:        "RTX 8090 - 4-Bit ALU with FSM"      # Project title
+  title:        "TinyTransformer 8x2 Attention Block"      # Project title
   author:       "Ziyang Zhao"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  "Transformer SFU (GELU/Sigmoid/Exp/Tanh/ReLU) + 4-bit ALU on IHP SG13G2"      # One line description of what your project does
+  description:  "Serially loaded quantized transformer block with fixed-weight multi-head attention and FFN on IHP SG13G2"      # One line description of what your project does
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
   top_module:   "tt_um_agentzz1_rtx8090"
   source_files:
@@ -11,44 +11,44 @@ project:
     - "datapath.v"
     - "control.v"
     - "sfu.v"
-  clock_hz:     50000000       # Clock frequency in Hz (or 0 if not applicable)
+  clock_hz:     10000000       # Clock frequency in Hz (or 0 if not applicable)
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
-  tiles: "1x1"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
+  tiles: "8x2"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
 
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
 pinout:
   # Inputs
-  ui[0]: "operand_a[0]"
-  ui[1]: "operand_a[1]"
-  ui[2]: "operand_a[2]"
-  ui[3]: "operand_a[3]"
-  ui[4]: "op_select[0]"
-  ui[5]: "op_select[1]"
-  ui[6]: "op_select[2]"
-  ui[7]: "start"
+  ui[0]: "data_in[0]"
+  ui[1]: "data_in[1]"
+  ui[2]: "data_in[2]"
+  ui[3]: "data_in[3]"
+  ui[4]: "data_in[4]"
+  ui[5]: "data_in[5]"
+  ui[6]: "data_in[6]"
+  ui[7]: "data_in[7]"
 
   # Outputs
-  uo[0]: "result[0]"
-  uo[1]: "result[1]"
-  uo[2]: "result[2]"
-  uo[3]: "result[3]"
-  uo[4]: "result[4]"
-  uo[5]: "result[5]"
-  uo[6]: "result[6]"
-  uo[7]: "result[7]"
+  uo[0]: "status/data_out[0]"
+  uo[1]: "status/data_out[1]"
+  uo[2]: "status/data_out[2]"
+  uo[3]: "status/data_out[3]"
+  uo[4]: "status/data_out[4]"
+  uo[5]: "status/data_out[5]"
+  uo[6]: "status/data_out[6]"
+  uo[7]: "status/data_out[7]"
 
   # Bidirectional pins
-  uio[0]: "func_sel[0] / zero_flag"
-  uio[1]: "func_sel[1] / carry_flag"
-  uio[2]: "func_sel[2] / overflow_flag"
-  uio[3]: "operand_b[3] / result_valid"
-  uio[4]: "mode (0=ALU, 1=SFU)"
-  uio[5]: ""
-  uio[6]: ""
-  uio[7]: ""
+  uio[0]: "slot_sel[0]"
+  uio[1]: "slot_sel[1]"
+  uio[2]: "feature_idx[0]"
+  uio[3]: "feature_idx[1]"
+  uio[4]: "feature_idx[2]"
+  uio[5]: "cmd[0]"
+  uio[6]: "cmd[1]"
+  uio[7]: "strobe"
 
 # Do not change!
 yaml_version: 6

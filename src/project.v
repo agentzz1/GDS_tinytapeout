@@ -13,69 +13,66 @@ module tt_um_agentzz1_rtx8090 (
     input  wire       rst_n
 );
 
-    // uio_in[4] = mode: 0=ALU, 1=SFU
-    wire mode = uio_in[4];
+    localparam CMD_LOAD_QUERY   = 2'b00;
+    localparam CMD_LOAD_CONTEXT = 2'b01;
+    localparam CMD_CONTROL      = 2'b10;
+    localparam CMD_READ_BANK    = 2'b11;
 
-    // --- ALU mode wiring ---
-    wire [3:0] operand_a = ui_in[3:0];
-    wire [2:0] op_select = ui_in[6:4];
-    wire       start     = ui_in[7];
-    wire [3:0] operand_b = uio_in[3:0];
+    wire [1:0] slot_sel    = uio_in[1:0];
+    wire [2:0] feature_idx = uio_in[4:2];
+    wire [1:0] cmd         = uio_in[6:5];
+    wire       cmd_strobe  = uio_in[7];
 
-    wire       load_a, load_b;
-    wire [2:0] alu_op;
-    wire       result_valid, busy;
-    wire [7:0] alu_result;
-    wire       zero_flag, carry_flag, overflow_flag;
+    wire       write_query;
+    wire       write_context;
+    wire       stage_proj;
+    wire       stage_attn;
+    wire       stage_mix;
+    wire       stage_ffn;
+    wire       busy;
+    wire       done;
+    wire [2:0] state;
+    wire [7:0] read_data;
+    wire [7:0] status_word;
 
     control u_control (
-        .clk          (clk),
-        .rst_n        (rst_n),
-        .start        (start & ~mode),
-        .op_select    (op_select),
-        .zero_flag    (zero_flag),
-        .carry_flag   (carry_flag),
-        .load_a       (load_a),
-        .load_b       (load_b),
-        .alu_op       (alu_op),
-        .result_valid (result_valid),
-        .busy         (busy)
+        .clk           (clk),
+        .rst_n         (rst_n),
+        .cmd_strobe    (cmd_strobe),
+        .cmd           (cmd),
+        .feature_idx   (feature_idx),
+        .write_query   (write_query),
+        .write_context (write_context),
+        .stage_proj    (stage_proj),
+        .stage_attn    (stage_attn),
+        .stage_mix     (stage_mix),
+        .stage_ffn     (stage_ffn),
+        .busy          (busy),
+        .done          (done),
+        .state         (state)
     );
 
     datapath u_datapath (
         .clk           (clk),
         .rst_n         (rst_n),
-        .operand_a     (operand_a),
-        .operand_b     (operand_b),
-        .alu_op        (alu_op),
-        .load_a        (load_a),
-        .load_b        (load_b),
-        .result        (alu_result),
-        .zero_flag     (zero_flag),
-        .carry_flag    (carry_flag),
-        .overflow_flag (overflow_flag)
+        .write_query   (write_query),
+        .write_context (write_context),
+        .stage_proj    (stage_proj),
+        .stage_attn    (stage_attn),
+        .stage_mix     (stage_mix),
+        .stage_ffn     (stage_ffn),
+        .slot_sel      (slot_sel),
+        .feature_idx   (feature_idx),
+        .data_in       (ui_in),
+        .read_data     (read_data)
     );
 
-    // --- SFU mode wiring ---
-    wire signed [7:0] sfu_x = ui_in;
-    wire [2:0] func_sel = uio_in[2:0];
-    wire signed [7:0] sfu_y;
+    assign status_word = {done, busy, (cmd == CMD_READ_BANK), state, 2'b00};
+    assign uo_out      = (cmd == CMD_READ_BANK) ? read_data : status_word;
 
-    sfu u_sfu (
-        .x        (sfu_x),
-        .func_sel (func_sel),
-        .y        (sfu_y)
-    );
+    assign uio_out = 8'b0;
+    assign uio_oe  = 8'b0;
 
-    // --- Output mux ---
-    assign uo_out = mode ? sfu_y : alu_result;
-
-    assign uio_out = mode ?
-        {3'b000, 1'b0, 1'b1, 1'b0, 1'b0, (sfu_y == 8'sd0)} :
-        {3'b000, busy, result_valid, overflow_flag, carry_flag, zero_flag};
-
-    assign uio_oe = 8'b00011111;
-
-    wire _unused = &{ena, uio_in[7:5]};
+    wire _unused = &{ena, 1'b0, cmd == CMD_LOAD_QUERY, cmd == CMD_LOAD_CONTEXT, cmd == CMD_CONTROL};
 
 endmodule

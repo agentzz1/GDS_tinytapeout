@@ -1,32 +1,52 @@
-# GDS TinyTapeout
+# TinyTransformer on Tiny Tapeout
 
-This repository captures a Tiny Tapeout digital-design experiment built on the Wokwi-based submission template. The goal is to explore a compact chip-oriented workflow that links project metadata, pin planning, simulation, and fabrication-style repository structure.
+This repository now implements a quantized transformer-style inference block sized for the maximum Tiny Tapeout user macro footprint (`8x2` tiles). The design accepts an 8-element query vector plus four 8-element context vectors over a serial command interface, then runs:
 
-## Why This Repository Exists
+- fixed-weight multi-head attention
+- output projection with residual connection
+- feed-forward network with GELU approximation
 
-- to learn the Tiny Tapeout submission flow end to end
-- to work within a constrained digital-design footprint
-- to bridge software-oriented iteration habits with ASIC-style project packaging
+## Interface Summary
 
-## Repository Layout
+- `ui_in[7:0]`: signed Q4.4 payload byte
+- `uio_in[1:0]`: context slot or read bank selector
+- `uio_in[4:2]`: feature index `0..7`
+- `uio_in[6:5]`: command
+- `uio_in[7]`: write / execute strobe
+- `uo_out[7:0]`: status word or readback data
 
-- `info.yaml` - project metadata, pinout, and tapeout configuration
-- `src/` - design sources
-- `test/` - verification and test assets
-- `docs/` - project notes and datasheet content
+Command encoding:
 
-## Current Status
+- `00`: load query feature
+- `01`: load context feature
+- `10`: status / execute (`feature_idx=7` with `strobe=1` starts inference)
+- `11`: read bank
 
-- Tiny Tapeout template scaffolded and connected to the project metadata flow
-- design documentation and pin descriptions are being refined
-- repository structure kept intact for simulation and build automation
+Read banks:
 
-## Relevance
+- `slot_sel=0`: final transformer output
+- `slot_sel=1`: post-attention residual mix
+- `slot_sel=2`: projected query vector
+- `slot_sel=3`: attention weights
 
-This project complements my FPGA and hardware-software background by forcing a smaller, more fabrication-oriented mindset: constrained interfaces, explicit pin planning, and a cleaner separation between metadata, design sources, and verification assets.
+## Status Word
 
-## Resources
+When `cmd=10` and `strobe=0`, `uo_out` exposes:
+
+- `uo_out[7]`: done
+- `uo_out[6]`: busy
+- `uo_out[5]`: read mode marker
+- `uo_out[4:2]`: pipeline stage
+
+## Layout
+
+- `src/project.v`: Tiny Tapeout wrapper and bus protocol
+- `src/control.v`: 4-stage execution controller
+- `src/datapath.v`: fixed-weight transformer datapath
+- `test/test.py`: cocotb reference-model verification
+
+## References
 
 - Tiny Tapeout: https://tinytapeout.com
 - Local hardening guide: https://www.tinytapeout.com/guides/local-hardening/
-- Documentation entrypoint: [docs/info.md](docs/info.md)
+- Datasheet notes: [docs/info.md](docs/info.md)
