@@ -33,7 +33,7 @@ module datapath (
     localparam FFN_HIDDEN  = 1'b0;
     localparam FFN_OUTPUT  = 1'b1;
 
-    integer init_i;
+    integer idx;
 
     reg signed [7:0] query_mem       [0:7];
     reg signed [7:0] context_mem     [0:31];
@@ -61,13 +61,6 @@ module datapath (
     reg signed [15:0] acc_reg;
     reg signed [7:0] gelu_in_q;
 
-    reg signed [3:0] coeff_proj_q [0:63];
-    reg signed [3:0] coeff_proj_k [0:63];
-    reg signed [3:0] coeff_proj_v [0:63];
-    reg signed [3:0] coeff_mix    [0:63];
-    reg signed [3:0] coeff_ffn_h  [0:127];
-    reg signed [3:0] coeff_ffn_o  [0:127];
-
     reg signed [7:0]  sample;
     reg signed [11:0] product;
     reg signed [15:0] acc_calc;
@@ -81,6 +74,25 @@ module datapath (
                 sat8 = -8'sd128;
             else
                 sat8 = value[7:0];
+        end
+    endfunction
+
+    function signed [3:0] coeff4;
+        input integer seed;
+        input integer row_sel;
+        input integer col_sel;
+        integer mix;
+        begin
+            mix = (seed + (row_sel * 3) + (col_sel * 5) + (row_sel * col_sel)) % 7;
+            case (mix)
+                0: coeff4 = -4;
+                1: coeff4 = -3;
+                2: coeff4 = -2;
+                3: coeff4 = -1;
+                4: coeff4 = 1;
+                5: coeff4 = 2;
+                default: coeff4 = 3;
+            endcase
         end
     endfunction
 
@@ -147,25 +159,6 @@ module datapath (
         end
     endfunction
 
-    function signed [3:0] coeff4_fn;
-        input integer seed;
-        input integer row_sel;
-        input integer col_sel;
-        integer mix;
-        begin
-            mix = (seed + (row_sel * 3) + (col_sel * 5) + (row_sel * col_sel)) % 7;
-            case (mix)
-                0: coeff4_fn = -4;
-                1: coeff4_fn = -3;
-                2: coeff4_fn = -2;
-                3: coeff4_fn = -1;
-                4: coeff4_fn = 1;
-                5: coeff4_fn = 2;
-                default: coeff4_fn = 3;
-            endcase
-        end
-    endfunction
-
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             busy       <= 1'b0;
@@ -186,31 +179,20 @@ module datapath (
             gelu_in_q  <= 8'sd0;
             acc_reg    <= 16'sd0;
 
-            for (init_i = 0; init_i < 64; init_i = init_i + 1) begin
-                coeff_proj_q[init_i] <= coeff4_fn(1,  init_i[5:3], init_i[2:0]);
-                coeff_proj_k[init_i] <= coeff4_fn(5,  init_i[5:3], init_i[2:0]);
-                coeff_proj_v[init_i] <= coeff4_fn(9,  init_i[5:3], init_i[2:0]);
-                coeff_mix[init_i]    <= coeff4_fn(11, init_i[5:3], init_i[2:0]);
+            for (idx = 0; idx < 8; idx = idx + 1) begin
+                query_mem[idx]       <= 8'sd0;
+                q_proj_mem[idx]      <= 8'sd0;
+                attn_mix_mem[idx]    <= 8'sd0;
+                mix_mem[idx]         <= 8'sd0;
+                final_mem[idx]       <= 8'sd0;
+                attn_weight_mem[idx] <= 8'd0;
             end
-            for (init_i = 0; init_i < 128; init_i = init_i + 1) begin
-                coeff_ffn_h[init_i] <= coeff4_fn(13, init_i[6:3], init_i[2:0]);
-                coeff_ffn_o[init_i] <= coeff4_fn(3,  init_i[6:3], init_i[2:0]);
-            end
-
-            for (init_i = 0; init_i < 8; init_i = init_i + 1) begin
-                query_mem[init_i]       <= 8'sd0;
-                q_proj_mem[init_i]      <= 8'sd0;
-                attn_mix_mem[init_i]    <= 8'sd0;
-                mix_mem[init_i]         <= 8'sd0;
-                final_mem[init_i]       <= 8'sd0;
-                attn_weight_mem[init_i] <= 8'd0;
-            end
-            for (init_i = 0; init_i < 16; init_i = init_i + 1)
-                hidden_mem[init_i] <= 8'sd0;
-            for (init_i = 0; init_i < 32; init_i = init_i + 1) begin
-                context_mem[init_i] <= 8'sd0;
-                key_mem[init_i]     <= 8'sd0;
-                value_mem[init_i]   <= 8'sd0;
+            for (idx = 0; idx < 16; idx = idx + 1)
+                hidden_mem[idx] <= 8'sd0;
+            for (idx = 0; idx < 32; idx = idx + 1) begin
+                context_mem[idx] <= 8'sd0;
+                key_mem[idx]     <= 8'sd0;
+                value_mem[idx]   <= 8'sd0;
             end
         end else begin
             if (write_query)
@@ -246,11 +228,11 @@ module datapath (
                             sample = context_mem[{token_idx, col_idx}];
 
                         if (proj_mode == PROJ_QUERY)
-                            product = sample * coeff_proj_q[{row_idx, col_idx}];
+                            product = sample * coeff4(1, row_idx, col_idx);
                         else if (proj_mode == PROJ_KEY)
-                            product = sample * coeff_proj_k[{row_idx, col_idx}];
+                            product = sample * coeff4(5, row_idx, col_idx);
                         else
-                            product = sample * coeff_proj_v[{row_idx, col_idx}];
+                            product = sample * coeff4(9, row_idx, col_idx);
 
                         acc_calc = acc_reg + {{4{product[11]}}, product};
 
@@ -361,7 +343,7 @@ module datapath (
                     end
 
                     STATE_MIX: begin
-                        product  = attn_mix_mem[col_idx] * coeff_mix[{row_idx, col_idx}];
+                        product  = attn_mix_mem[col_idx] * coeff4(11, row_idx, col_idx);
                         acc_calc = acc_reg + {{4{product[11]}}, product};
 
                         if (col_idx == 3'd7) begin
@@ -388,7 +370,7 @@ module datapath (
                     STATE_FFN: begin
                         if (ffn_mode == FFN_HIDDEN) begin
                             if (gelu_phase == 1'b0) begin
-                                product  = mix_mem[col_idx] * coeff_ffn_h[{hidden_idx, col_idx}];
+                                product  = mix_mem[col_idx] * coeff4(13, hidden_idx, col_idx);
                                 acc_calc = acc_reg + {{4{product[11]}}, product};
 
                                 if (col_idx == 3'd7) begin
@@ -413,7 +395,7 @@ module datapath (
                                 end
                             end
                         end else begin
-                            product  = hidden_mem[hidden_idx[3:0]] * coeff_ffn_o[{row_idx, hidden_idx[3:0]}];
+                            product  = hidden_mem[hidden_idx[3:0]] * coeff4(3, row_idx, hidden_idx);
                             acc_calc = acc_reg + {{4{product[11]}}, product};
 
                             if (hidden_idx == 5'd15) begin
