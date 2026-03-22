@@ -34,6 +34,11 @@ module datapath (
     localparam FFN_OUTPUT  = 1'b1;
 
     integer idx;
+    integer sample;
+    integer product;
+    integer acc_calc;
+    integer head_base_next;
+    integer weight_next;
 
     reg signed [7:0] query_mem       [0:7];
     reg signed [7:0] context_mem     [0:31];
@@ -57,20 +62,14 @@ module datapath (
     reg [4:0] hidden_idx;
     reg [9:0] denom_reg;
     reg [2:0] shift_reg;
-    reg       gelu_phase;
-    reg signed [15:0] acc_reg;
-    reg signed [7:0] gelu_in_q;
-
-    reg signed [7:0]  sample;
-    reg signed [11:0] product;
-    reg signed [15:0] acc_calc;
+    reg signed [31:0] acc_reg;
 
     function signed [7:0] sat8;
-        input signed [15:0] value;
+        input signed [31:0] value;
         begin
-            if (value > 16'sd127)
+            if (value > 127)
                 sat8 = 8'sd127;
-            else if (value < -16'sd128)
+            else if (value < -128)
                 sat8 = -8'sd128;
             else
                 sat8 = value[7:0];
@@ -98,33 +97,33 @@ module datapath (
 
     function signed [7:0] sigmoid_q44;
         input signed [7:0] x;
-        reg [7:0] abs_x;
-        reg [7:0] pos;
+        integer abs_x;
+        integer pos;
         begin
-            abs_x = x[7] ? (-x) : x;
-            if (abs_x >= 8'd48)
-                pos = 8'd16;
-            else if (abs_x >= 8'd24)
-                pos = (abs_x >>> 4) + 8'd10;
+            abs_x = x[7] ? -x : x;
+            if (abs_x >= 48)
+                pos = 16;
+            else if (abs_x >= 24)
+                pos = (abs_x >>> 4) + 10;
             else
-                pos = (abs_x >>> 3) + 8'd8;
+                pos = (abs_x >>> 3) + 8;
 
             if (x[7])
-                sigmoid_q44 = sat8(16'sd16 - {8'd0, pos});
+                sigmoid_q44 = sat8(16 - pos);
             else
-                sigmoid_q44 = {1'b0, pos[6:0]};
+                sigmoid_q44 = sat8(pos);
         end
     endfunction
 
     function signed [7:0] gelu_q44;
         input signed [7:0] x;
-        reg signed [7:0] scaled_x;
-        reg signed [7:0] sig_x;
-        reg signed [15:0] prod;
+        integer scaled_x;
+        integer sig_x;
+        integer prod;
         begin
-            scaled_x = sat8(($signed({{8{x[7]}}, x}) * 16'sd3) >>> 1);
-            sig_x    = sigmoid_q44(scaled_x);
-            prod     = $signed({{8{x[7]}}, x}) * $signed({{8{sig_x[7]}}, sig_x});
+            scaled_x = sat8(($signed(x) * 3) >>> 1);
+            sig_x    = sigmoid_q44(scaled_x[7:0]);
+            prod     = $signed(x) * sig_x;
             gelu_q44 = sat8(prod >>> 4);
         end
     endfunction
@@ -148,11 +147,11 @@ module datapath (
     endfunction
 
     function [2:0] norm_shift;
-        input [9:0] weight_sum;
+        input integer weight_sum;
         begin
-            if (weight_sum >= 10'd160)
+            if (weight_sum >= 160)
                 norm_shift = 3'd6;
-            else if (weight_sum >= 10'd96)
+            else if (weight_sum >= 96)
                 norm_shift = 3'd5;
             else
                 norm_shift = 3'd4;
@@ -175,9 +174,7 @@ module datapath (
             hidden_idx <= 5'd0;
             denom_reg  <= 10'd0;
             shift_reg  <= 3'd4;
-            gelu_phase <= 1'b0;
-            gelu_in_q  <= 8'sd0;
-            acc_reg    <= 16'sd0;
+            acc_reg    <= 32'sd0;
 
             for (idx = 0; idx < 8; idx = idx + 1) begin
                 query_mem[idx]       <= 8'sd0;
@@ -187,8 +184,10 @@ module datapath (
                 final_mem[idx]       <= 8'sd0;
                 attn_weight_mem[idx] <= 8'd0;
             end
+
             for (idx = 0; idx < 16; idx = idx + 1)
                 hidden_mem[idx] <= 8'sd0;
+
             for (idx = 0; idx < 32; idx = idx + 1) begin
                 context_mem[idx] <= 8'sd0;
                 key_mem[idx]     <= 8'sd0;
@@ -216,16 +215,14 @@ module datapath (
                 hidden_idx <= 5'd0;
                 denom_reg  <= 10'd0;
                 shift_reg  <= 3'd4;
-                gelu_phase <= 1'b0;
-                gelu_in_q  <= 8'sd0;
-                acc_reg    <= 16'sd0;
+                acc_reg    <= 32'sd0;
             end else if (busy) begin
                 case (state)
                     STATE_PROJ: begin
                         if (proj_mode == PROJ_QUERY)
                             sample = query_mem[col_idx];
                         else
-                            sample = context_mem[{token_idx, col_idx}];
+                            sample = context_mem[(token_idx * 8) + col_idx];
 
                         if (proj_mode == PROJ_QUERY)
                             product = sample * coeff4(1, row_idx, col_idx);
@@ -234,15 +231,15 @@ module datapath (
                         else
                             product = sample * coeff4(9, row_idx, col_idx);
 
-                        acc_calc = acc_reg + {{4{product[11]}}, product};
+                        acc_calc = acc_reg + product;
 
                         if (col_idx == 3'd7) begin
                             if (proj_mode == PROJ_QUERY)
                                 q_proj_mem[row_idx] <= sat8(acc_calc >>> 4);
                             else if (proj_mode == PROJ_KEY)
-                                key_mem[{token_idx, row_idx}] <= sat8(acc_calc >>> 4);
+                                key_mem[(token_idx * 8) + row_idx] <= sat8(acc_calc >>> 4);
                             else
-                                value_mem[{token_idx, row_idx}] <= sat8(acc_calc >>> 4);
+                                value_mem[(token_idx * 8) + row_idx] <= sat8(acc_calc >>> 4);
 
                             if (row_idx == 3'd7) begin
                                 if (proj_mode == PROJ_QUERY) begin
@@ -277,44 +274,48 @@ module datapath (
                             end
 
                             col_idx <= 3'b000;
-                            acc_reg <= 16'sd0;
+                            acc_reg <= 32'sd0;
                         end else begin
                             col_idx <= col_idx + 3'd1;
-                            acc_reg <= acc_calc[15:0];
+                            acc_reg <= acc_calc;
                         end
                     end
 
                     STATE_ATTN: begin
-                        if (attn_mode == ATTN_WEIGHT) begin
-                            product  = q_proj_mem[{head_idx, col_idx[1:0]}] * key_mem[{token_idx, head_idx, col_idx[1:0]}];
-                            acc_calc = acc_reg + {{4{product[11]}}, product};
+                        head_base_next = head_idx * 4;
 
-                            if (col_idx[1:0] == 2'd3) begin
-                                attn_weight_mem[{head_idx, token_idx}] <= exp_weight(sat8(acc_calc >>> 8));
+                        if (attn_mode == ATTN_WEIGHT) begin
+                            product  = q_proj_mem[head_base_next + col_idx] * key_mem[(token_idx * 8) + head_base_next + col_idx];
+                            acc_calc = acc_reg + product;
+
+                            if (col_idx == 3'd3) begin
+                                weight_next = exp_weight(sat8(acc_calc >>> 8));
+                                attn_weight_mem[head_base_next + token_idx] <= weight_next[7:0];
 
                                 if (token_idx == 2'd3) begin
                                     attn_mode <= ATTN_MIX;
                                     token_idx <= 2'b00;
                                     out_dim   <= 2'b00;
                                     col_idx   <= 3'b000;
-                                    shift_reg <= norm_shift(denom_reg + {2'b0, exp_weight(sat8(acc_calc >>> 8))});
-                                    acc_reg   <= 16'sd0;
+                                    shift_reg <= norm_shift(denom_reg + weight_next);
+                                    acc_reg   <= 32'sd0;
                                 end else begin
                                     token_idx <= token_idx + 2'd1;
                                     col_idx   <= 3'b000;
-                                    acc_reg   <= 16'sd0;
+                                    acc_reg   <= 32'sd0;
                                 end
 
-                                denom_reg <= denom_reg + {2'b0, exp_weight(sat8(acc_calc >>> 8))};
+                                denom_reg <= denom_reg + weight_next;
                             end else begin
                                 col_idx <= col_idx + 3'd1;
-                                acc_reg <= acc_calc[15:0];
+                                acc_reg <= acc_calc;
                             end
                         end else begin
-                            acc_calc = acc_reg + ({{4{1'b0}}, attn_weight_mem[{head_idx, token_idx}]} * $signed({{8{value_mem[{token_idx, head_idx, out_dim[1:0]}][7]}}, value_mem[{token_idx, head_idx, out_dim[1:0]}]}));
+                            weight_next = attn_weight_mem[head_base_next + token_idx];
+                            acc_calc    = acc_reg + (weight_next * value_mem[(token_idx * 8) + head_base_next + out_dim]);
 
                             if (token_idx == 2'd3) begin
-                                attn_mix_mem[{head_idx, out_dim}] <= sat8(acc_calc >>> shift_reg);
+                                attn_mix_mem[head_base_next + out_dim] <= sat8(acc_calc >>> shift_reg);
 
                                 if (out_dim == 2'd3) begin
                                     if (head_idx == 2'd1) begin
@@ -334,57 +335,43 @@ module datapath (
                                     token_idx <= 2'b00;
                                 end
 
-                                acc_reg <= 16'sd0;
+                                acc_reg <= 32'sd0;
                             end else begin
                                 token_idx <= token_idx + 2'd1;
-                                acc_reg   <= acc_calc[15:0];
+                                acc_reg   <= acc_calc;
                             end
                         end
                     end
 
                     STATE_MIX: begin
-                        product  = attn_mix_mem[col_idx] * coeff4(11, row_idx, col_idx);
-                        acc_calc = acc_reg + {{4{product[11]}}, product};
+                        acc_calc = acc_reg + (attn_mix_mem[col_idx] * coeff4(11, row_idx, col_idx));
 
                         if (col_idx == 3'd7) begin
-                            mix_mem[row_idx] <= sat8({{8{query_mem[row_idx][7]}}, query_mem[row_idx]} + (acc_calc >>> 4));
+                            mix_mem[row_idx] <= sat8(query_mem[row_idx] + (acc_calc >>> 4));
 
                             if (row_idx == 3'd7) begin
                                 state      <= STATE_FFN;
                                 ffn_mode   <= FFN_HIDDEN;
                                 hidden_idx <= 5'd0;
                                 row_idx    <= 3'b000;
-                                gelu_phase <= 1'b0;
                             end else begin
                                 row_idx <= row_idx + 3'd1;
                             end
 
                             col_idx <= 3'b000;
-                            acc_reg <= 16'sd0;
+                            acc_reg <= 32'sd0;
                         end else begin
                             col_idx <= col_idx + 3'd1;
-                            acc_reg <= acc_calc[15:0];
+                            acc_reg <= acc_calc;
                         end
                     end
 
                     STATE_FFN: begin
                         if (ffn_mode == FFN_HIDDEN) begin
-                            if (gelu_phase == 1'b0) begin
-                                product  = mix_mem[col_idx] * coeff4(13, hidden_idx, col_idx);
-                                acc_calc = acc_reg + {{4{product[11]}}, product};
+                            acc_calc = acc_reg + (mix_mem[col_idx] * coeff4(13, hidden_idx, col_idx));
 
-                                if (col_idx == 3'd7) begin
-                                    gelu_in_q  <= sat8(acc_calc >>> 4);
-                                    gelu_phase <= 1'b1;
-                                    col_idx    <= 3'b000;
-                                    acc_reg    <= 16'sd0;
-                                end else begin
-                                    col_idx <= col_idx + 3'd1;
-                                    acc_reg <= acc_calc[15:0];
-                                end
-                            end else begin
-                                hidden_mem[hidden_idx] <= gelu_q44(gelu_in_q);
-                                gelu_phase <= 1'b0;
+                            if (col_idx == 3'd7) begin
+                                hidden_mem[hidden_idx] <= gelu_q44(sat8(acc_calc >>> 4));
 
                                 if (hidden_idx == 5'd15) begin
                                     ffn_mode   <= FFN_OUTPUT;
@@ -393,13 +380,18 @@ module datapath (
                                 end else begin
                                     hidden_idx <= hidden_idx + 5'd1;
                                 end
+
+                                col_idx <= 3'b000;
+                                acc_reg <= 32'sd0;
+                            end else begin
+                                col_idx <= col_idx + 3'd1;
+                                acc_reg <= acc_calc;
                             end
                         end else begin
-                            product  = hidden_mem[hidden_idx[3:0]] * coeff4(3, row_idx, hidden_idx);
-                            acc_calc = acc_reg + {{4{product[11]}}, product};
+                            acc_calc = acc_reg + (hidden_mem[hidden_idx] * coeff4(3, row_idx, hidden_idx));
 
                             if (hidden_idx == 5'd15) begin
-                                final_mem[row_idx] <= sat8({{8{mix_mem[row_idx][7]}}, mix_mem[row_idx]} + (acc_calc >>> 5));
+                                final_mem[row_idx] <= sat8(mix_mem[row_idx] + (acc_calc >>> 5));
 
                                 if (row_idx == 3'd7) begin
                                     busy  <= 1'b0;
@@ -410,10 +402,10 @@ module datapath (
                                 end
 
                                 hidden_idx <= 5'd0;
-                                acc_reg    <= 16'sd0;
+                                acc_reg    <= 32'sd0;
                             end else begin
                                 hidden_idx <= hidden_idx + 5'd1;
-                                acc_reg    <= acc_calc[15:0];
+                                acc_reg    <= acc_calc;
                             end
                         end
                     end
