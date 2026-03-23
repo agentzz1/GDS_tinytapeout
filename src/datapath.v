@@ -298,14 +298,14 @@ module datapath (
                                     out_dim   <= 2'b00;
                                     col_idx   <= 3'b000;
                                     shift_reg <= norm_shift(denom_reg + weight_next);
+                                    denom_reg <= 10'd0;
                                     acc_reg   <= 32'sd0;
                                 end else begin
                                     token_idx <= token_idx + 2'd1;
                                     col_idx   <= 3'b000;
+                                    denom_reg <= denom_reg + weight_next;
                                     acc_reg   <= 32'sd0;
                                 end
-
-                                denom_reg <= denom_reg + weight_next;
                             end else begin
                                 col_idx <= col_idx + 3'd1;
                                 acc_reg <= acc_calc;
