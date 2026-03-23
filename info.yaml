@@ -10,7 +10,6 @@ project:
     - "project.v"
     - "datapath.v"
     - "control.v"
-    - "sfu.v"
   clock_hz:     10000000       # Clock frequency in Hz (or 0 if not applicable)
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
