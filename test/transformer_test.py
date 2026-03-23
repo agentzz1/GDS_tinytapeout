@@ -133,7 +133,7 @@ def transformer_reference(query_vec, context_vecs):
         mix_vec[row] = sat8(query_vec[row] + (acc >> 4))
 
     hidden = []
-    for hidden_idx in range(16):
+    for hidden_idx in range(8):
         hidden_acc = 0
         for col in range(8):
             hidden_acc += mix_vec[col] * coeff4(13, hidden_idx, col)
@@ -141,7 +141,7 @@ def transformer_reference(query_vec, context_vecs):
 
     for row in range(8):
         final_acc = 0
-        for hidden_idx in range(16):
+        for hidden_idx in range(8):
             final_acc += hidden[hidden_idx] * coeff4(3, row, hidden_idx)
         final_vec[row] = sat8(mix_vec[row] + (final_acc >> 5))
 

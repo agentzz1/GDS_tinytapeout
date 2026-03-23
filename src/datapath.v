@@ -47,7 +47,7 @@ module datapath (
     reg signed [7:0] value_mem       [0:31];
     reg signed [7:0] attn_mix_mem    [0:7];
     reg signed [7:0] mix_mem         [0:7];
-    reg signed [7:0] hidden_mem      [0:15];
+    reg signed [7:0] hidden_mem      [0:7];
     reg signed [7:0] final_mem       [0:7];
     reg        [7:0] attn_weight_mem [0:7];
 
@@ -59,7 +59,7 @@ module datapath (
     reg [1:0] token_idx;
     reg [2:0] col_idx;
     reg [1:0] out_dim;
-    reg [4:0] hidden_idx;
+    reg [2:0] hidden_idx;
     reg [9:0] denom_reg;
     reg [2:0] shift_reg;
     reg signed [31:0] acc_reg;
@@ -171,7 +171,7 @@ module datapath (
             token_idx  <= 2'b00;
             col_idx    <= 3'b000;
             out_dim    <= 2'b00;
-            hidden_idx <= 5'd0;
+            hidden_idx <= 3'd0;
             denom_reg  <= 10'd0;
             shift_reg  <= 3'd4;
             acc_reg    <= 32'sd0;
@@ -185,7 +185,7 @@ module datapath (
                 attn_weight_mem[idx] <= 8'd0;
             end
 
-            for (idx = 0; idx < 16; idx = idx + 1)
+            for (idx = 0; idx < 8; idx = idx + 1)
                 hidden_mem[idx] <= 8'sd0;
 
             for (idx = 0; idx < 32; idx = idx + 1) begin
@@ -212,7 +212,7 @@ module datapath (
                 token_idx  <= 2'b00;
                 col_idx    <= 3'b000;
                 out_dim    <= 2'b00;
-                hidden_idx <= 5'd0;
+                hidden_idx <= 3'd0;
                 denom_reg  <= 10'd0;
                 shift_reg  <= 3'd4;
                 acc_reg    <= 32'sd0;
@@ -352,7 +352,7 @@ module datapath (
                             if (row_idx == 3'd7) begin
                                 state      <= STATE_FFN;
                                 ffn_mode   <= FFN_HIDDEN;
-                                hidden_idx <= 5'd0;
+                                hidden_idx <= 3'd0;
                                 row_idx    <= 3'b000;
                             end else begin
                                 row_idx <= row_idx + 3'd1;
@@ -373,12 +373,12 @@ module datapath (
                             if (col_idx == 3'd7) begin
                                 hidden_mem[hidden_idx] <= gelu_q44(sat8(acc_calc >>> 4));
 
-                                if (hidden_idx == 5'd15) begin
+                                if (hidden_idx == 3'd7) begin
                                     ffn_mode   <= FFN_OUTPUT;
                                     row_idx    <= 3'b000;
-                                    hidden_idx <= 5'd0;
+                                    hidden_idx <= 3'd0;
                                 end else begin
-                                    hidden_idx <= hidden_idx + 5'd1;
+                                    hidden_idx <= hidden_idx + 3'd1;
                                 end
 
                                 col_idx <= 3'b000;
@@ -390,7 +390,7 @@ module datapath (
                         end else begin
                             acc_calc = acc_reg + (hidden_mem[hidden_idx] * coeff4(3, row_idx, hidden_idx));
 
-                            if (hidden_idx == 5'd15) begin
+                            if (hidden_idx == 3'd7) begin
                                 final_mem[row_idx] <= sat8(mix_mem[row_idx] + (acc_calc >>> 5));
 
                                 if (row_idx == 3'd7) begin
@@ -401,10 +401,10 @@ module datapath (
                                     row_idx <= row_idx + 3'd1;
                                 end
 
-                                hidden_idx <= 5'd0;
+                                hidden_idx <= 3'd0;
                                 acc_reg    <= 32'sd0;
                             end else begin
-                                hidden_idx <= hidden_idx + 5'd1;
+                                hidden_idx <= hidden_idx + 3'd1;
                                 acc_reg    <= acc_calc;
                             end
                         end
