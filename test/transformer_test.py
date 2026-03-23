@@ -88,7 +88,7 @@ def transformer_reference(query_vec, context_vecs):
     num_tokens = len(context_vecs)
     keys = [[0] * 8 for _ in range(num_tokens)]
     values = [[0] * 8 for _ in range(num_tokens)]
-    attn_weights = [0] * (2 * num_tokens)
+    attn_weights = [0] * 8
     attn_mix = [0] * 8
     mix_vec = [0] * 8
     final_vec = [0] * 8
@@ -117,7 +117,7 @@ def transformer_reference(query_vec, context_vecs):
             for dim in range(4):
                 score_acc += q_proj[base + dim] * keys[token][base + dim]
             weight = exp_weight(sat8(score_acc >> 8))
-            attn_weights[base + token] = weight
+            attn_weights[head * 4 + token] = weight
             weights.append(weight)
 
         shift = norm_shift(sum(weights))
