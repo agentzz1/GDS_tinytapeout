@@ -85,9 +85,10 @@ def norm_shift(weight_sum):
 
 def transformer_reference(query_vec, context_vecs):
     q_proj = []
-    keys = [[0] * 8 for _ in range(4)]
-    values = [[0] * 8 for _ in range(4)]
-    attn_weights = [0] * 8
+    num_tokens = len(context_vecs)
+    keys = [[0] * 8 for _ in range(num_tokens)]
+    values = [[0] * 8 for _ in range(num_tokens)]
+    attn_weights = [0] * (2 * num_tokens)
     attn_mix = [0] * 8
     mix_vec = [0] * 8
     final_vec = [0] * 8
@@ -98,7 +99,7 @@ def transformer_reference(query_vec, context_vecs):
             acc += query_vec[col] * coeff4(1, row, col)
         q_proj.append(sat8(acc >> 4))
 
-    for token in range(4):
+    for token in range(num_tokens):
         for row in range(8):
             acc_k = 0
             acc_v = 0
@@ -111,7 +112,7 @@ def transformer_reference(query_vec, context_vecs):
     for head in range(2):
         base = head * 4
         weights = []
-        for token in range(4):
+        for token in range(num_tokens):
             score_acc = 0
             for dim in range(4):
                 score_acc += q_proj[base + dim] * keys[token][base + dim]
@@ -122,7 +123,7 @@ def transformer_reference(query_vec, context_vecs):
         shift = norm_shift(sum(weights))
         for dim in range(4):
             acc = 0
-            for token in range(4):
+            for token in range(num_tokens):
                 acc += weights[token] * values[token][base + dim]
             attn_mix[base + dim] = sat8(acc >> shift)
 
@@ -222,8 +223,6 @@ async def test_transformer_reference_match(dut):
     context = [
         [12, -4, 8, 0, -8, 16, 4, -12],
         [-16, 8, -4, 12, 20, -8, 0, 4],
-        [4, 20, -12, 8, -4, 12, -16, 16],
-        [8, 0, 16, -8, 12, -4, 20, -12],
     ]
 
     expected_final, expected_mix, expected_qproj, expected_weights = transformer_reference(query, context)
@@ -258,8 +257,6 @@ async def test_transformer_reacts_to_context_updates(dut):
     context = [
         [4, 8, -12, 16, -8, 20, 0, -4],
         [-8, 16, 4, -12, 8, 0, 20, -16],
-        [20, -4, 12, 8, -16, 4, -8, 16],
-        [0, 12, -4, 20, 8, -8, 16, -12],
     ]
 
     await load_vectors(dut, query, context)
@@ -267,8 +264,8 @@ async def test_transformer_reacts_to_context_updates(dut):
     await wait_done(dut)
     baseline = [await read_bank(dut, 0, i) for i in range(8)]
 
-    context[2][5] = -20
-    await write_context(dut, 2, 5, context[2][5])
+    context[1][5] = -20
+    await write_context(dut, 1, 5, context[1][5])
     await execute(dut)
     await wait_done(dut)
 

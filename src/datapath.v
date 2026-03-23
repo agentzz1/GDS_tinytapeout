@@ -41,10 +41,10 @@ module datapath (
     integer weight_next;
 
     reg signed [7:0] query_mem       [0:7];
-    reg signed [7:0] context_mem     [0:31];
+    reg signed [7:0] context_mem     [0:15];
     reg signed [7:0] q_proj_mem      [0:7];
-    reg signed [7:0] key_mem         [0:31];
-    reg signed [7:0] value_mem       [0:31];
+    reg signed [7:0] key_mem         [0:15];
+    reg signed [7:0] value_mem       [0:15];
     reg signed [7:0] attn_mix_mem    [0:7];
     reg signed [7:0] mix_mem         [0:7];
     reg signed [7:0] hidden_mem      [0:7];
@@ -60,9 +60,9 @@ module datapath (
     reg [2:0] col_idx;
     reg [1:0] out_dim;
     reg [2:0] hidden_idx;
-    reg [9:0] denom_reg;
+    reg [7:0] denom_reg;
     reg [2:0] shift_reg;
-    reg signed [31:0] acc_reg;
+    reg signed [15:0] acc_reg;
 
     function signed [7:0] sat8;
         input signed [31:0] value;
@@ -172,9 +172,9 @@ module datapath (
             col_idx    <= 3'b000;
             out_dim    <= 2'b00;
             hidden_idx <= 3'd0;
-            denom_reg  <= 10'd0;
+            denom_reg  <= 8'd0;
             shift_reg  <= 3'd4;
-            acc_reg    <= 32'sd0;
+            acc_reg    <= 16'sd0;
 
             for (idx = 0; idx < 8; idx = idx + 1) begin
                 query_mem[idx]       <= 8'sd0;
@@ -188,7 +188,7 @@ module datapath (
             for (idx = 0; idx < 8; idx = idx + 1)
                 hidden_mem[idx] <= 8'sd0;
 
-            for (idx = 0; idx < 32; idx = idx + 1) begin
+            for (idx = 0; idx < 16; idx = idx + 1) begin
                 context_mem[idx] <= 8'sd0;
                 key_mem[idx]     <= 8'sd0;
                 value_mem[idx]   <= 8'sd0;
@@ -198,7 +198,7 @@ module datapath (
                 query_mem[feature_idx] <= data_in;
 
             if (write_context)
-                context_mem[{slot_sel, feature_idx}] <= data_in;
+                context_mem[{slot_sel[0], feature_idx[2:0]}] <= data_in;
 
             if (exec_start) begin
                 busy       <= 1'b1;
@@ -213,9 +213,9 @@ module datapath (
                 col_idx    <= 3'b000;
                 out_dim    <= 2'b00;
                 hidden_idx <= 3'd0;
-                denom_reg  <= 10'd0;
+                denom_reg  <= 8'd0;
                 shift_reg  <= 3'd4;
-                acc_reg    <= 32'sd0;
+                acc_reg    <= 16'sd0;
             end else if (busy) begin
                 case (state)
                     STATE_PROJ: begin
@@ -247,7 +247,7 @@ module datapath (
                                     row_idx   <= 3'b000;
                                     token_idx <= 2'b00;
                                 end else if (proj_mode == PROJ_KEY) begin
-                                    if (token_idx == 2'd3) begin
+                                    if (token_idx == 2'd1) begin
                                         proj_mode <= PROJ_VALUE;
                                         row_idx   <= 3'b000;
                                         token_idx <= 2'b00;
@@ -256,14 +256,14 @@ module datapath (
                                         token_idx <= token_idx + 2'd1;
                                     end
                                 end else begin
-                                    if (token_idx == 2'd3) begin
+                                    if (token_idx == 2'd1) begin
                                         state     <= STATE_ATTN;
                                         head_idx  <= 2'b00;
                                         attn_mode <= ATTN_WEIGHT;
                                         token_idx <= 2'b00;
                                         out_dim   <= 2'b00;
                                         col_idx   <= 3'b000;
-                                        denom_reg <= 10'd0;
+                                        denom_reg <= 8'd0;
                                     end else begin
                                         row_idx   <= 3'b000;
                                         token_idx <= token_idx + 2'd1;
@@ -274,7 +274,7 @@ module datapath (
                             end
 
                             col_idx <= 3'b000;
-                            acc_reg <= 32'sd0;
+                            acc_reg <= 16'sd0;
                         end else begin
                             col_idx <= col_idx + 3'd1;
                             acc_reg <= acc_calc;
@@ -292,19 +292,19 @@ module datapath (
                                 weight_next = exp_weight(sat8(acc_calc >>> 8));
                                 attn_weight_mem[head_base_next + token_idx] <= weight_next[7:0];
 
-                                if (token_idx == 2'd3) begin
+                                if (token_idx == 2'd1) begin
                                     attn_mode <= ATTN_MIX;
                                     token_idx <= 2'b00;
                                     out_dim   <= 2'b00;
                                     col_idx   <= 3'b000;
                                     shift_reg <= norm_shift(denom_reg + weight_next);
-                                    denom_reg <= 10'd0;
-                                    acc_reg   <= 32'sd0;
+                                    denom_reg <= 8'd0;
+                                    acc_reg   <= 16'sd0;
                                 end else begin
                                     token_idx <= token_idx + 2'd1;
                                     col_idx   <= 3'b000;
                                     denom_reg <= denom_reg + weight_next;
-                                    acc_reg   <= 32'sd0;
+                                    acc_reg   <= 16'sd0;
                                 end
                             end else begin
                                 col_idx <= col_idx + 3'd1;
@@ -314,7 +314,7 @@ module datapath (
                             weight_next = attn_weight_mem[head_base_next + token_idx];
                             acc_calc    = acc_reg + (weight_next * value_mem[(token_idx * 8) + head_base_next + out_dim]);
 
-                            if (token_idx == 2'd3) begin
+                            if (token_idx == 2'd1) begin
                                 attn_mix_mem[head_base_next + out_dim] <= sat8(acc_calc >>> shift_reg);
 
                                 if (out_dim == 2'd3) begin
@@ -328,14 +328,14 @@ module datapath (
                                         token_idx  <= 2'b00;
                                         out_dim    <= 2'b00;
                                         col_idx    <= 3'b000;
-                                        denom_reg  <= 10'd0;
+                                        denom_reg  <= 8'd0;
                                     end
                                 end else begin
                                     out_dim   <= out_dim + 2'd1;
                                     token_idx <= 2'b00;
                                 end
 
-                                acc_reg <= 32'sd0;
+                                acc_reg <= 16'sd0;
                             end else begin
                                 token_idx <= token_idx + 2'd1;
                                 acc_reg   <= acc_calc;
@@ -359,7 +359,7 @@ module datapath (
                             end
 
                             col_idx <= 3'b000;
-                            acc_reg <= 32'sd0;
+                            acc_reg <= 16'sd0;
                         end else begin
                             col_idx <= col_idx + 3'd1;
                             acc_reg <= acc_calc;
@@ -382,7 +382,7 @@ module datapath (
                                 end
 
                                 col_idx <= 3'b000;
-                                acc_reg <= 32'sd0;
+                                acc_reg <= 16'sd0;
                             end else begin
                                 col_idx <= col_idx + 3'd1;
                                 acc_reg <= acc_calc;
@@ -402,7 +402,7 @@ module datapath (
                                 end
 
                                 hidden_idx <= 3'd0;
-                                acc_reg    <= 32'sd0;
+                                acc_reg    <= 16'sd0;
                             end else begin
                                 hidden_idx <= hidden_idx + 3'd1;
                                 acc_reg    <= acc_calc;
